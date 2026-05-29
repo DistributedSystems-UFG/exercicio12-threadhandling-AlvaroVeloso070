@@ -6,6 +6,37 @@ public class SimpleThreads {
         System.out.format("%s: %s%n", threadName, message);
     }
 
+    private static class CPUIntensiveTask implements Runnable {
+        private final long limit;
+
+        CPUIntensiveTask(long limit) {
+            this.limit = limit;
+        }
+
+        public void run() {
+            threadMessage("Iniciando cálculo de primos até " + limit);
+            long count = 0;
+            for (long n = 2; n <= limit; n++) {
+                if (Thread.interrupted()) {
+                    threadMessage("Tarefa CPU interrompida! Primos encontrados até agora: " + count);
+                    return;
+                }
+                if (isPrime(n)) {
+                    count++;
+                }
+            }
+            threadMessage("Tarefa CPU concluída! Total de primos até " + limit + ": " + count);
+        }
+
+        private boolean isPrime(long n) {
+            if (n < 2) return false;
+            for (long i = 2; i * i <= n; i++) {
+                if (n % i == 0) return false;
+            }
+            return true;
+        }
+    }
+
     private static class MessageLoop
         implements Runnable {
         public void run() {
@@ -44,6 +75,25 @@ public class SimpleThreads {
             }
         }
 
+        // --- CPU-intensive thread (time limit: 5 seconds) ---
+        long cpuPatience = 5000;
+        threadMessage("Iniciando thread CPUIntensiveTask");
+        Thread cpuThread = new Thread(new CPUIntensiveTask(50_000_000L));
+        long cpuStartTime = System.currentTimeMillis();
+        cpuThread.start();
+
+        while (cpuThread.isAlive()) {
+            threadMessage("Tarefa CPU ainda em execução...");
+            cpuThread.join(1000);
+            if ((System.currentTimeMillis() - cpuStartTime) > cpuPatience && cpuThread.isAlive()) {
+                threadMessage("Tarefa CPU excedeu o tempo limite! Interrompendo...");
+                cpuThread.interrupt();
+                cpuThread.join();
+            }
+        }
+        threadMessage("Tarefa CPU finalizada.");
+
+        // --- MessageLoop thread ---
         threadMessage("Starting MessageLoop thread");
         long startTime = System.currentTimeMillis();
         Thread t = new Thread(new MessageLoop());
